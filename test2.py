@@ -83,9 +83,14 @@ def summarize_article_flexible(article, num_clusters=2):
 
 # Function to generate a longer summary using all sentences
 def long_summary(article):
-    sentences = tokenizer.encode_plus(article, return_tensors='pt', truncation=True)
-    sentences = sentences['input_ids'][0]
-    decoded_sentences = tokenizer.decode(sentences, skip_special_tokens=True).split('.')
+    # Tokenize the article into sentences
+    sentences = tokenizer.tokenize(article)
+    
+    # Convert tokens to input IDs
+    input_ids = tokenizer.convert_tokens_to_ids(sentences)
+    
+    # Decode input IDs back to sentences
+    decoded_sentences = [tokenizer.decode([id]) for id in input_ids]
     return ' '.join(decoded_sentences)
 
 # Function to translate the article to a specific language
