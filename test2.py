@@ -1,24 +1,13 @@
-import nltk
-import streamlit as st
 from nltk.tokenize import sent_tokenize
-from nltk.corpus import stopwords
 
-# Download punkt and stopwords if they are not already available
-try:
-    nltk.download('punkt', quiet=True)
-    nltk.download('stopwords', quiet=True)
-except Exception as e:
-    st.error(f"Failed to download NLTK resources: {e}")
+text = """galih suka
 
-# Test with sample text
-text = st.text_area("Enter text to tokenize:")
-if text:
-    sentences = sent_tokenize(text)
-    st.write("Tokenized Sentences:")
-    st.write(sentences)
+Artikel ini telah tayang di Kompas.com dengan judul "Presiden Prabowo Panggil Menkeu, Menko Perekonomian, dan Menaker, Bahas Sritex?", Klik untuk baca: https://nasional.kompas.com/read/2024/10/29/14020721/presiden-prabowo-panggil-menkeu-menko-perekonomian-dan-menaker-bahas-sritex.
 
-    # Use stopwords
-    stop_words = set(stopwords.words('english'))
-    filtered_sentences = [word for word in sentences if word not in stop_words]
-    st.write("Filtered Sentences (without stopwords):")
-    st.write(filtered_sentences)
+Kompascom+ baca berita tanpa iklan: https://kmp.im/plus6
+Download aplikasi: https://kmp.im/app6
+"""
+
+# Tokenisasi dengan bahasa Indonesia
+sentences = sent_tokenize(text, language='indonesian')
+print(sentences)
