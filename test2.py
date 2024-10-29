@@ -12,6 +12,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from googletrans import Translator
 
+import nltk
+nltk.download('punkt')
+nltk.download('stopwords')  # If you haven't already downloaded stopwords
+
+
 # Initialize stop words for multiple languages
 stop_words = {
     'en': set(stopwords.words('english')).union({'said', 'will', 'also', 'one', 'new', 'make'}),
