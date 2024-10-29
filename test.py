@@ -12,11 +12,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from googletrans import Translator
 from gtts import gTTS
-import pygame
+import pyttsx3  # Importing pyttsx3
 import tempfile
-
-# Initialize Pygame mixer
-pygame.mixer.init()
 
 # Download stopwords for nltk
 nltk.download('punkt')
@@ -100,10 +97,10 @@ def translate_article(article, dest_language='en'):
 # Text-to-Speech function that includes title and summaries
 def text_to_speech(title, point_summary, paragraph_summary, long_summary, lang='en'):
     speech_text = f"Title: {title}. Key Points: {', '.join(point_summary)}. Short Summary: {paragraph_summary}. Long Summary: {long_summary}."
-    tts = gTTS(text=speech_text, lang=lang)
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
-        tts.save(temp_file.name)
-        return temp_file.name
+    engine = pyttsx3.init()
+    engine.save_to_file(speech_text, 'output.mp3')  # Save to mp3 file
+    engine.runAndWait()  # Wait for the speech to finish
+    return 'output.mp3'  # Return the filename
 
 # Function to generate hashtags from title and content
 def generate_hashtags(title, content, lang='en', num_hashtags=5):
@@ -125,20 +122,6 @@ def generate_hashtags(title, content, lang='en', num_hashtags=5):
     top_keywords = [f"#{keyword.capitalize()}" for keyword, score in scored_keywords[:num_hashtags]]
     return top_keywords
 
-# Audio control functions
-def play_audio(audio_file):
-    pygame.mixer.music.load(audio_file)
-    pygame.mixer.music.play()
-
-def pause_audio():
-    pygame.mixer.music.pause()
-
-def unpause_audio():
-    pygame.mixer.music.unpause()
-
-def stop_audio():
-    pygame.mixer.music.stop()
-
 # Main function to run the Streamlit app
 def main():
     st.title('News Summarization & Hashtag Generator App')
@@ -150,8 +133,6 @@ def main():
         st.session_state.lang = "en"
     if 'audio_file' not in st.session_state:
         st.session_state.audio_file = None
-    if 'is_playing' not in st.session_state:
-        st.session_state.is_playing = False
 
     st.session_state.url = st.text_input('Enter the URL of the news article:', st.session_state.url)
     st.session_state.lang = st.selectbox('Select language for translation:', ['en', 'id', 'es', 'fr'], index=['en', 'id', 'es', 'fr'].index(st.session_state.lang))
@@ -202,37 +183,17 @@ def main():
                 st.write("### Infographic:")
                 st.image(infographic_buf, caption="Word Count per Key Point", use_column_width=True)
 
-                # Generate hashtags
-                hashtags = generate_hashtags(translated_title, translated_article, st.session_state.lang)
-                st.subheader('Generated Hashtags:')
-                st.write(', '.join(hashtags))
-
                 # Generate audio only if not already generated
                 if st.session_state.audio_file is None:
                     st.session_state.audio_file = text_to_speech(translated_title, point_summary, paragraph_summary, detailed_summary, lang=st.session_state.lang)
 
-                # Audio Controls
-                st.write("### Audio Controls:")
-                if st.button('Play'):
-                    if st.session_state.audio_file:
-                        play_audio(st.session_state.audio_file)
-                        st.session_state.is_playing = True
-                        st.write("Playing...")
-                    else:
-                        st.warning("Audio not available. Please summarize the article first.")
-                if st.button('Pause'):
-                    pause_audio()
-                    st.session_state.is_playing = False
-                    st.write("Paused...")
-                if st.button('Resume'):
-                    if not st.session_state.is_playing:
-                        unpause_audio()
-                        st.session_state.is_playing = True
-                        st.write("Resumed...")
-                if st.button('Stop'):
-                    stop_audio()
-                    st.session_state.is_playing = False
-                    st.write("Stopped.")
+                # Provide link to download audio file
+                st.download_button(label='Download Audio', data=st.session_state.audio_file, file_name='summary.mp3')
+
+                # Generate hashtags
+                hashtags = generate_hashtags(translated_title, translated_article, st.session_state.lang)
+                st.subheader('Generated Hashtags:')
+                st.write(', '.join(hashtags))
 
                 st.success("Summary and hashtags generated successfully!")
 
