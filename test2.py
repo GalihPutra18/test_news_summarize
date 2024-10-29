@@ -5,14 +5,11 @@ import matplotlib.pyplot as plt
 import io
 import re
 from bs4 import BeautifulSoup
-from transformers import BertTokenizer
+from nltk.tokenize import word_tokenize
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from googletrans import Translator
-
-# Inisialisasi tokenizer BERT
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
 # Unduh stopwords untuk nltk
 stopwords_set = stopwords.words('english')  # Menggunakan NLTK untuk stopwords bahasa Inggris
@@ -97,11 +94,11 @@ def translate_article(article, dest_language='en'):
 # Fungsi untuk menghasilkan hashtag dari judul dan konten
 def generate_hashtags(title, content, lang='en', num_hashtags=5):
     stop_words_set = stop_words.get(lang, set())
-    title_words = [word for word in tokenizer.tokenize(title.lower()) if word.isalnum() and len(word) > 3 and word not in stop_words_set]
-    content_words = [word for word in tokenizer.tokenize(content.lower()) if word.isalnum() and len(word) > 3 and word not in stop_words_set]
+    title_tokens = [word for word in word_tokenize(title.lower()) if word.isalnum() and len(word) > 3 and word not in stop_words_set]
+    content_tokens = [word for word in word_tokenize(content.lower()) if word.isalnum() and len(word) > 3 and word not in stop_words_set]
     
     # Gabungkan kata kunci dari judul dan konten
-    keywords = title_words * 2 + content_words  # Menggandakan kata judul untuk meningkatkan bobot
+    keywords = title_tokens * 2 + content_tokens  # Menggandakan kata judul untuk meningkatkan bobot
 
     # Menghasilkan skor TF-IDF
     vectorizer = TfidfVectorizer()
