@@ -42,40 +42,44 @@ def fetch_article(url):
 
 # Function to summarize the article into key points and generate infographic
 def summarize_article_flexible(article, num_clusters=2):
-    sentences = tokenizer.encode_plus(article, return_tensors='pt', truncation=True)
-    sentences = sentences['input_ids'][0]
+    # Tokenize the article into sentences
+    sentences = tokenizer.tokenize(article)
     
-    # Convert the input IDs back to sentences
-    decoded_sentences = tokenizer.decode(sentences, skip_special_tokens=True).split('.')
-    decoded_sentences = [s.strip() for s in decoded_sentences if s]  # Clean up empty strings
+    # Convert tokens to input IDs
+    input_ids = tokenizer.convert_tokens_to_ids(sentences)
+    
+    # Decode the input IDs back to sentences
+    decoded_sentences = [tokenizer.decode([id]) for id in input_ids]
 
+    # Lanjutkan dengan langkah-langkah berikutnya seperti yang ada
     vectorizer = TfidfVectorizer(stop_words='english')
     X = vectorizer.fit_transform(decoded_sentences)
     kmeans = KMeans(n_clusters=num_clusters, n_init=10)
     kmeans.fit(X)
 
-    # Get key points from each cluster
+    # Dapatkan ringkasan poin kunci dari setiap cluster
     point_summary = []
     for i in range(num_clusters):
         cluster_sentences = [decoded_sentences[j] for j in range(len(decoded_sentences)) if kmeans.labels_[j] == i]
         if cluster_sentences:
-            point_summary.append(max(cluster_sentences, key=len))  # Longest sentence as key point
+            point_summary.append(max(cluster_sentences, key=len))  # Kalimat terpanjang sebagai poin kunci
 
-    # Short paragraph summary
+    # Ringkasan paragraf pendek
     paragraph_summary = ' '.join(point_summary)
 
-    # Infographic: Visualizing word counts
+    # Infografik: Visualisasi jumlah kata
     sentence_lengths = [len(sentence.split()) for sentence in point_summary]
     plt.figure(figsize=(6, 4))
     plt.bar(range(1, len(point_summary) + 1), sentence_lengths, color='skyblue')
-    plt.xlabel('Point Number')
-    plt.ylabel('Word Count')
-    plt.title('Word Count per Key Point')
+    plt.xlabel('Nomor Poin')
+    plt.ylabel('Jumlah Kata')
+    plt.title('Jumlah Kata per Poin Kunci')
     buf = io.BytesIO()
     plt.savefig(buf, format='png')
     buf.seek(0)
 
     return point_summary, paragraph_summary, buf
+
 
 # Function to generate a longer summary using all sentences
 def long_summary(article):
