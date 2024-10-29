@@ -10,12 +10,6 @@ from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from googletrans import Translator
-from gtts import gTTS
-import pygame
-import tempfile
-
-# Initialize Pygame mixer
-pygame.mixer.init()
 
 # Initialize BERT tokenizer
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
@@ -104,14 +98,6 @@ def translate_article(article, dest_language='en'):
         st.error(f'Translation failed: {e}')
         return None
 
-# Text-to-Speech function that includes title and summaries
-def text_to_speech(title, point_summary, paragraph_summary, long_summary, lang='en'):
-    speech_text = f"Title: {title}. Key Points: {', '.join(point_summary)}. Short Summary: {paragraph_summary}. Long Summary: {long_summary}."
-    tts = gTTS(text=speech_text, lang=lang)
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
-        tts.save(temp_file.name)
-        return temp_file.name
-
 # Function to generate hashtags from title and content
 def generate_hashtags(title, content, lang='en', num_hashtags=5):
     stop_words_set = stop_words.get(lang, set())
@@ -132,20 +118,6 @@ def generate_hashtags(title, content, lang='en', num_hashtags=5):
     top_keywords = [f"#{keyword.capitalize()}" for keyword, score in scored_keywords[:num_hashtags]]
     return top_keywords
 
-# Audio control functions
-def play_audio(audio_file):
-    pygame.mixer.music.load(audio_file)
-    pygame.mixer.music.play()
-
-def pause_audio():
-    pygame.mixer.music.pause()
-
-def unpause_audio():
-    pygame.mixer.music.unpause()
-
-def stop_audio():
-    pygame.mixer.music.stop()
-
 # Main function to run the Streamlit app
 def main():
     st.title('News Summarization & Hashtag Generator App')
@@ -155,10 +127,6 @@ def main():
         st.session_state.url = ""
     if 'lang' not in st.session_state:
         st.session_state.lang = "en"
-    if 'audio_file' not in st.session_state:
-        st.session_state.audio_file = None
-    if 'is_playing' not in st.session_state:
-        st.session_state.is_playing = False
 
     st.session_state.url = st.text_input('Enter the URL of the news article:', st.session_state.url)
     st.session_state.lang = st.selectbox('Select language for translation:', ['en', 'id', 'es', 'fr'], index=['en', 'id', 'es', 'fr'].index(st.session_state.lang))
@@ -213,26 +181,6 @@ def main():
                 hashtags = generate_hashtags(translated_title, translated_article, st.session_state.lang)
                 st.write("### Generated Hashtags:")
                 st.write(", ".join(hashtags))
-
-                # Generate and play audio
-                st.session_state.audio_file = text_to_speech(translated_title, point_summary, paragraph_summary, detailed_summary, lang=st.session_state.lang)
-                if st.button("Play Audio Summary"):
-                    if st.session_state.audio_file:
-                        play_audio(st.session_state.audio_file)
-                        st.session_state.is_playing = True
-                    else:
-                        st.error("Audio file not generated.")
-
-                if st.session_state.is_playing:
-                    if st.button("Pause Audio"):
-                        pause_audio()
-                        st.session_state.is_playing = False
-                    if st.button("Resume Audio"):
-                        unpause_audio()
-                        st.session_state.is_playing = True
-                    if st.button("Stop Audio"):
-                        stop_audio()
-                        st.session_state.is_playing = False
 
 if __name__ == "__main__":
     main()
