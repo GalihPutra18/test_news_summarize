@@ -1,4 +1,3 @@
-# Import libraries
 import nltk
 import streamlit as st
 import requests
@@ -11,9 +10,6 @@ from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from googletrans import Translator
-from gtts import gTTS
-import pyttsx3  # Importing pyttsx3
-import tempfile
 
 # Download stopwords for nltk
 nltk.download('punkt')
@@ -94,14 +90,6 @@ def translate_article(article, dest_language='en'):
         st.error(f'Translation failed: {e}')
         return None
 
-# Text-to-Speech function that includes title and summaries
-def text_to_speech(title, point_summary, paragraph_summary, long_summary, lang='en'):
-    speech_text = f"Title: {title}. Key Points: {', '.join(point_summary)}. Short Summary: {paragraph_summary}. Long Summary: {long_summary}."
-    engine = pyttsx3.init()
-    engine.save_to_file(speech_text, 'output.mp3')  # Save to mp3 file
-    engine.runAndWait()  # Wait for the speech to finish
-    return 'output.mp3'  # Return the filename
-
 # Function to generate hashtags from title and content
 def generate_hashtags(title, content, lang='en', num_hashtags=5):
     stop_words_set = stop_words.get(lang, set())
@@ -131,8 +119,6 @@ def main():
         st.session_state.url = ""
     if 'lang' not in st.session_state:
         st.session_state.lang = "en"
-    if 'audio_file' not in st.session_state:
-        st.session_state.audio_file = None
 
     st.session_state.url = st.text_input('Enter the URL of the news article:', st.session_state.url)
     st.session_state.lang = st.selectbox('Select language for translation:', ['en', 'id', 'es', 'fr'], index=['en', 'id', 'es', 'fr'].index(st.session_state.lang))
@@ -182,13 +168,6 @@ def main():
                 # Infographic
                 st.write("### Infographic:")
                 st.image(infographic_buf, caption="Word Count per Key Point", use_column_width=True)
-
-                # Generate audio only if not already generated
-                if st.session_state.audio_file is None:
-                    st.session_state.audio_file = text_to_speech(translated_title, point_summary, paragraph_summary, detailed_summary, lang=st.session_state.lang)
-
-                # Provide link to download audio file
-                st.download_button(label='Download Audio', data=st.session_state.audio_file, file_name='summary.mp3')
 
                 # Generate hashtags
                 hashtags = generate_hashtags(translated_title, translated_article, st.session_state.lang)
