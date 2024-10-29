@@ -11,11 +11,11 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from googletrans import Translator
 
-# Initialize BERT tokenizer
+# Inisialisasi tokenizer BERT
 tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-# Download stopwords for nltk
-stopwords_set = stopwords.words('english')  # Using NLTK for English stopwords
+# Unduh stopwords untuk nltk
+stopwords_set = stopwords.words('english')  # Menggunakan NLTK untuk stopwords bahasa Inggris
 stop_words = {
     'en': set(stopwords_set).union({'said', 'will', 'also', 'one', 'new', 'make'}),
     'id': set(stopwords.words('indonesian')).union({'dan', 'yang', 'di', 'dari', 'pada', 'untuk', 'dengan', 'ke', 'dalam', 'adalah'}),
@@ -23,7 +23,7 @@ stop_words = {
     'fr': set(stopwords.words('french')).union({'et', 'le', 'est', 'dans', 'sur', 'avec'})
 }
 
-# Function to fetch and parse article from the given URL
+# Fungsi untuk mengambil dan memparsing artikel dari URL yang diberikan
 def fetch_article(url):
     response = requests.get(url)
     if response.status_code == 200:
@@ -31,55 +31,56 @@ def fetch_article(url):
         title = soup.title.string if soup.title else 'No Title Found'
         paragraphs = soup.find_all('p')
         article = ' '.join([para.get_text() for para in paragraphs])
-
-        # Remove common ad phrases
+        
+        # Hapus frasa iklan yang umum
         ad_patterns = re.compile(r"(Advertisement|Scroll to Continue|Baca Juga|Lanjutkan dengan Konten)", re.IGNORECASE)
         article_cleaned = ad_patterns.sub('', article)
-
+        
         return title, article_cleaned.strip()
     else:
         return None, None
 
-# Function to summarize the article
+# Fungsi untuk meringkas artikel
 def summarize_article_flexible(article, num_clusters=2):
-    # Tokenize the article into sentences
-    sentences = tokenizer.tokenize(article)
+    # Tokenisasi artikel menjadi kalimat dan menghilangkan karakter khusus
+    sentences = re.split(r'(?<=[.!?]) +', article)
+    sentences = [sentence for sentence in sentences if sentence.strip()]
 
-    # Create TF-IDF vector
+    # Buat vektor TF-IDF
     vectorizer = TfidfVectorizer(stop_words='english')
     X = vectorizer.fit_transform(sentences)
     kmeans = KMeans(n_clusters=num_clusters, n_init=10)
     kmeans.fit(X)
 
-    # Get key points summary from each cluster
+    # Dapatkan ringkasan poin kunci dari setiap cluster
     point_summary = []
     for i in range(num_clusters):
         cluster_sentences = [sentences[j] for j in range(len(sentences)) if kmeans.labels_[j] == i]
         if cluster_sentences:
-            point_summary.append(max(cluster_sentences, key=len))  # Longest sentence as key point
+            point_summary.append(max(cluster_sentences, key=len))  # Kalimat terpanjang sebagai poin kunci
 
-    # Short paragraph summary
+    # Ringkasan paragraf pendek
     paragraph_summary = ' '.join(point_summary)
 
-    # Infographic: Visualize word count
+    # Infografik: Visualisasi jumlah kata
     sentence_lengths = [len(sentence.split()) for sentence in point_summary]
     plt.figure(figsize=(6, 4))
     plt.bar(range(1, len(point_summary) + 1), sentence_lengths, color='skyblue')
-    plt.xlabel('Point Number')
-    plt.ylabel('Word Count')
-    plt.title('Word Count per Key Point')
+    plt.xlabel('Nomor Poin')
+    plt.ylabel('Jumlah Kata')
+    plt.title('Jumlah Kata per Poin Kunci')
     buf = io.BytesIO()
     plt.savefig(buf, format='png')
     buf.seek(0)
 
     return point_summary, paragraph_summary, buf
 
-# Function for generating a longer summary
+# Fungsi untuk menghasilkan ringkasan yang lebih panjang
 def long_summary(article):
-    sentences = tokenizer.tokenize(article)
+    sentences = re.split(r'(?<=[.!?]) +', article)
     return ' '.join(sentences)
 
-# Function to translate the article into a specific language
+# Fungsi untuk menerjemahkan artikel ke bahasa tertentu
 def translate_article(article, dest_language='en'):
     translator = Translator()
     try:
@@ -90,93 +91,92 @@ def translate_article(article, dest_language='en'):
         else:
             return article
     except Exception as e:
-        st.error(f'Translation failed: {e}')
+        st.error(f'Terjemahan gagal: {e}')
         return None
 
-# Function to generate hashtags from the title and content
+# Fungsi untuk menghasilkan hashtag dari judul dan konten
 def generate_hashtags(title, content, lang='en', num_hashtags=5):
     stop_words_set = stop_words.get(lang, set())
     title_words = [word for word in tokenizer.tokenize(title.lower()) if word.isalnum() and len(word) > 3 and word not in stop_words_set]
     content_words = [word for word in tokenizer.tokenize(content.lower()) if word.isalnum() and len(word) > 3 and word not in stop_words_set]
+    
+    # Gabungkan kata kunci dari judul dan konten
+    keywords = title_words * 2 + content_words  # Menggandakan kata judul untuk meningkatkan bobot
 
-    # Combine keywords from title and content
-    keywords = title_words * 2 + content_words  # Duplicate title words to increase weight
-
-    # Generate TF-IDF scores
+    # Menghasilkan skor TF-IDF
     vectorizer = TfidfVectorizer()
     X = vectorizer.fit_transform([' '.join(keywords)])
-
+    
     tfidf_scores = X.toarray().flatten()
     feature_names = vectorizer.get_feature_names_out()
     scored_keywords = sorted(zip(feature_names, tfidf_scores), key=lambda x: x[1], reverse=True)
-
+    
     top_keywords = [f"#{keyword.capitalize()}" for keyword, score in scored_keywords[:num_hashtags]]
     return top_keywords
 
-# Main function to run the Streamlit app
+# Fungsi utama untuk menjalankan aplikasi Streamlit
 def main():
-    st.title('News Article Summary & Hashtag Generator')
+    st.title('Aplikasi Ringkasan Berita & Pembuat Hashtag')
 
-    # Store URL and selected language in session state
+    # Menyimpan URL dan bahasa yang dipilih dalam state sesi
     if 'url' not in st.session_state:
         st.session_state.url = ""
     if 'lang' not in st.session_state:
         st.session_state.lang = "en"
 
-    st.session_state.url = st.text_input('Enter news article URL:', st.session_state.url)
-    st.session_state.lang = st.selectbox('Select language for translation:', ['en', 'id', 'es', 'fr'], index=['en', 'id', 'es', 'fr'].index(st.session_state.lang))
+    st.session_state.url = st.text_input('Masukkan URL artikel berita:', st.session_state.url)
+    st.session_state.lang = st.selectbox('Pilih bahasa untuk terjemahan:', ['en', 'id', 'es', 'fr'], index=['en', 'id', 'es', 'fr'].index(st.session_state.lang))
 
-    if st.button('Summarize and Generate Hashtags'):
+    if st.button('Ringkas dan Hasilkan Hashtag'):
         if st.session_state.url:
             if not (st.session_state.url.startswith('http://') or st.session_state.url.startswith('https://')):
-                st.error('Please enter a valid URL starting with http:// or https://')
+                st.error('Silakan masukkan URL yang valid dimulai dengan http:// atau https://')
                 return
-
+            
             title, article = fetch_article(st.session_state.url)
             if article:
                 if not article.strip():
-                    st.error('Article is empty or could not be fetched.')
+                    st.error('Artikel kosong atau tidak dapat diambil.')
                     return
 
-                # Translate title if necessary
+                # Terjemahkan judul jika perlu
                 translated_title = translate_article(title, st.session_state.lang)
-                st.subheader('Article Title:')
+                st.subheader('Judul Artikel:')
                 st.write(translated_title)
 
-                # Translate article if necessary
+                # Terjemahkan artikel jika perlu
                 translated_article = translate_article(article, st.session_state.lang)
                 if translated_article is None:
                     return
 
-                num_clusters = st.slider('Select number of clusters for summary:', 1, 5, 2)
+                num_clusters = st.slider('Pilih jumlah cluster untuk ringkasan:', 1, 5, 2)
                 point_summary, paragraph_summary, infographic_buf = summarize_article_flexible(translated_article, num_clusters)
 
-                # Display flexible summary options
-                st.subheader('Flexible Summary Options:')
+                # Tampilkan opsi ringkasan fleksibel
+                st.subheader('Opsi Ringkasan Fleksibel:')
                 
-                # Key Points
-                st.write("### Key Points:")
+                # Poin Kunci
+                st.write("### Poin Kunci:")
                 for idx, point in enumerate(point_summary, 1):
                     st.write(f"{idx}. {point}")
 
-                # Short Paragraph
-                st.write("### Short Paragraph:")
+                # Paragraf Pendek
+                st.write("### Paragraf Pendek:")
                 st.write(paragraph_summary)
 
-                # Detailed Summary
+                # Ringkasan yang lebih panjang
                 detailed_summary = long_summary(translated_article)
-                st.write("### Detailed Summary:")
+                st.write("### Ringkasan Detail:")
                 st.write(detailed_summary)
 
-                # Infographic
-                st.write("### Infographic:")
+                # Infografik
+                st.write("### Infografik:")
                 st.image(infographic_buf)
 
-                # Generate hashtags
+                # Hasilkan hashtag
                 hashtags = generate_hashtags(translated_title, translated_article, st.session_state.lang)
-                st.write("### Generated Hashtags:")
+                st.write("### Hashtag yang Dihasilkan:")
                 st.write(", ".join(hashtags))
 
 if __name__ == "__main__":
     main()
-
