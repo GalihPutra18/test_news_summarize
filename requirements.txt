@@ -1,7 +1,10 @@
 streamlit
 requests
-matplotlib
 beautifulsoup4
+matplotlib
+transformers
 nltk
 scikit-learn
-googletrans==4.0.0-rc1
+googletrans==4.0.0-rc1 (atau versi terbaru yang stabil)
+gtts
+pygame
