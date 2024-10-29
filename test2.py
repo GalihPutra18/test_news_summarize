@@ -16,9 +16,21 @@ import os
 nltk_data_path = os.path.join(os.getcwd(), "nltk_data")  # Change this to your desired path if necessary
 nltk.data.path.append(nltk_data_path)
 
-# Download stopwords for nltk
+# Download required NLTK data
 nltk.download('punkt', download_dir=nltk_data_path)
 nltk.download('stopwords', download_dir=nltk_data_path)
+
+# Function to ensure all necessary NLTK models are downloaded
+def ensure_nltk_resources():
+    resources = ['punkt', 'stopwords']
+    for resource in resources:
+        try:
+            nltk.data.find(f'tokenizers/{resource}')
+        except LookupError:
+            nltk.download(resource)
+
+# Ensure that NLTK resources are available
+ensure_nltk_resources()
 
 # Initialize stop words for multiple languages
 stop_words = {
@@ -47,8 +59,15 @@ def fetch_article(url):
 
 # Function to summarize the article into key points and generate infographic
 def summarize_article_flexible(article, num_clusters=2):
-    sentences = sent_tokenize(article)
-    vectorizer = TfidfVectorizer(stop_words='english')
+    # Specify the language for tokenization based on the article language
+    language = 'indonesian' if st.session_state.lang == 'id' else 'english'
+    
+    # Ensure punkt tokenizer is available for the selected language
+    nltk.download('punkt', download_dir=nltk_data_path)
+
+    # Tokenize the sentences
+    sentences = sent_tokenize(article, language=language)
+    vectorizer = TfidfVectorizer(stop_words='english' if language == 'english' else 'indonesian')
     X = vectorizer.fit_transform(sentences)
     kmeans = KMeans(n_clusters=num_clusters, n_init=10)
     kmeans.fit(X)
