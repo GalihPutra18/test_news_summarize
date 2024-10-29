@@ -11,9 +11,6 @@ from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from googletrans import Translator
-from gtts import gTTS
-import pygame
-import tempfile
 
 # Initialize Pygame mixer
 pygame.mixer.init()
@@ -97,13 +94,6 @@ def translate_article(article, dest_language='en'):
         st.error(f'Translation failed: {e}')
         return None
 
-# Text-to-Speech function that includes title and summaries
-def text_to_speech(title, point_summary, paragraph_summary, long_summary, lang='en'):
-    speech_text = f"Title: {title}. Key Points: {', '.join(point_summary)}. Short Summary: {paragraph_summary}. Long Summary: {long_summary}."
-    tts = gTTS(text=speech_text, lang=lang)
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
-        tts.save(temp_file.name)
-        return temp_file.name
 
 # Function to generate hashtags from title and content
 def generate_hashtags(title, content, lang='en', num_hashtags=5):
@@ -210,29 +200,6 @@ def main():
                 # Generate audio only if not already generated
                 if st.session_state.audio_file is None:
                     st.session_state.audio_file = text_to_speech(translated_title, point_summary, paragraph_summary, detailed_summary, lang=st.session_state.lang)
-
-                # Audio Controls
-                st.write("### Audio Controls:")
-                if st.button('Play'):
-                    if st.session_state.audio_file:
-                        play_audio(st.session_state.audio_file)
-                        st.session_state.is_playing = True
-                        st.write("Playing...")
-                    else:
-                        st.warning("Audio not available. Please summarize the article first.")
-                if st.button('Pause'):
-                    pause_audio()
-                    st.session_state.is_playing = False
-                    st.write("Paused...")
-                if st.button('Resume'):
-                    if not st.session_state.is_playing:
-                        unpause_audio()
-                        st.session_state.is_playing = True
-                        st.write("Resumed...")
-                if st.button('Stop'):
-                    stop_audio()
-                    st.session_state.is_playing = False
-                    st.write("Stopped.")
 
                 st.success("Summary and hashtags generated successfully!")
 
