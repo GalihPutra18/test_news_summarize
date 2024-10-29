@@ -1,40 +1,29 @@
-import nltk
+# Import libraries
 import streamlit as st
 import requests
 import matplotlib.pyplot as plt
 import io
 import re
 from bs4 import BeautifulSoup
-from nltk.tokenize import sent_tokenize, word_tokenize
+from transformers import BertTokenizer
 from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from googletrans import Translator
-import os
+from gtts import gTTS
+import pygame
+import tempfile
 
-# Set the NLTK data directory
-nltk_data_path = os.path.join(os.getcwd(), "nltk_data")  # Change this to your desired path if necessary
-nltk.data.path.append(nltk_data_path)
+# Initialize Pygame mixer
+pygame.mixer.init()
 
-# Download required NLTK data
-nltk.download('punkt', download_dir=nltk_data_path)
-nltk.download('stopwords', download_dir=nltk_data_path)
+# Initialize BERT tokenizer
+tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 
-# Function to ensure all necessary NLTK models are downloaded
-def ensure_nltk_resources():
-    resources = ['punkt', 'stopwords']
-    for resource in resources:
-        try:
-            nltk.data.find(f'tokenizers/{resource}')
-        except LookupError:
-            nltk.download(resource)
-
-# Ensure that NLTK resources are available
-ensure_nltk_resources()
-
-# Initialize stop words for multiple languages
+# Download stopwords for nltk
+stopwords_set = stopwords.words('english')  # Using NLTK for English stopwords
 stop_words = {
-    'en': set(stopwords.words('english')).union({'said', 'will', 'also', 'one', 'new', 'make'}),
+    'en': set(stopwords_set).union({'said', 'will', 'also', 'one', 'new', 'make'}),
     'id': set(stopwords.words('indonesian')).union({'dan', 'yang', 'di', 'dari', 'pada', 'untuk', 'dengan', 'ke', 'dalam', 'adalah'}),
     'es': set(stopwords.words('spanish')).union({'y', 'el', 'en', 'con', 'para', 'de'}),
     'fr': set(stopwords.words('french')).union({'et', 'le', 'est', 'dans', 'sur', 'avec'})
@@ -59,23 +48,22 @@ def fetch_article(url):
 
 # Function to summarize the article into key points and generate infographic
 def summarize_article_flexible(article, num_clusters=2):
-    # Specify the language for tokenization based on the article language
-    language = 'indonesian' if st.session_state.lang == 'id' else 'english'
+    sentences = tokenizer.encode_plus(article, return_tensors='pt', truncation=True)
+    sentences = sentences['input_ids'][0]
     
-    # Ensure punkt tokenizer is available for the selected language
-    nltk.download('punkt', download_dir=nltk_data_path)
+    # Convert the input IDs back to sentences
+    decoded_sentences = tokenizer.decode(sentences, skip_special_tokens=True).split('.')
+    decoded_sentences = [s.strip() for s in decoded_sentences if s]  # Clean up empty strings
 
-    # Tokenize the sentences
-    sentences = sent_tokenize(article, language=language)
-    vectorizer = TfidfVectorizer(stop_words='english' if language == 'english' else 'indonesian')
-    X = vectorizer.fit_transform(sentences)
+    vectorizer = TfidfVectorizer(stop_words='english')
+    X = vectorizer.fit_transform(decoded_sentences)
     kmeans = KMeans(n_clusters=num_clusters, n_init=10)
     kmeans.fit(X)
 
     # Get key points from each cluster
     point_summary = []
     for i in range(num_clusters):
-        cluster_sentences = [sentences[j] for j in range(len(sentences)) if kmeans.labels_[j] == i]
+        cluster_sentences = [decoded_sentences[j] for j in range(len(decoded_sentences)) if kmeans.labels_[j] == i]
         if cluster_sentences:
             point_summary.append(max(cluster_sentences, key=len))  # Longest sentence as key point
 
@@ -97,8 +85,10 @@ def summarize_article_flexible(article, num_clusters=2):
 
 # Function to generate a longer summary using all sentences
 def long_summary(article):
-    sentences = sent_tokenize(article)
-    return ' '.join(sentences)
+    sentences = tokenizer.encode_plus(article, return_tensors='pt', truncation=True)
+    sentences = sentences['input_ids'][0]
+    decoded_sentences = tokenizer.decode(sentences, skip_special_tokens=True).split('.')
+    return ' '.join(decoded_sentences)
 
 # Function to translate the article to a specific language
 def translate_article(article, dest_language='en'):
@@ -114,11 +104,19 @@ def translate_article(article, dest_language='en'):
         st.error(f'Translation failed: {e}')
         return None
 
+# Text-to-Speech function that includes title and summaries
+def text_to_speech(title, point_summary, paragraph_summary, long_summary, lang='en'):
+    speech_text = f"Title: {title}. Key Points: {', '.join(point_summary)}. Short Summary: {paragraph_summary}. Long Summary: {long_summary}."
+    tts = gTTS(text=speech_text, lang=lang)
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.mp3') as temp_file:
+        tts.save(temp_file.name)
+        return temp_file.name
+
 # Function to generate hashtags from title and content
 def generate_hashtags(title, content, lang='en', num_hashtags=5):
     stop_words_set = stop_words.get(lang, set())
-    title_words = [word for word in word_tokenize(title.lower()) if word.isalnum() and len(word) > 3 and word not in stop_words_set]
-    content_words = [word for word in word_tokenize(content.lower()) if word.isalnum() and len(word) > 3 and word not in stop_words_set]
+    title_words = [word for word in tokenizer.tokenize(title.lower()) if word.isalnum() and len(word) > 3 and word not in stop_words_set]
+    content_words = [word for word in tokenizer.tokenize(content.lower()) if word.isalnum() and len(word) > 3 and word not in stop_words_set]
     
     # Combine title and content words, giving more weight to title words
     keywords = title_words * 2 + content_words  # Doubling title words to increase their weight
@@ -134,6 +132,20 @@ def generate_hashtags(title, content, lang='en', num_hashtags=5):
     top_keywords = [f"#{keyword.capitalize()}" for keyword, score in scored_keywords[:num_hashtags]]
     return top_keywords
 
+# Audio control functions
+def play_audio(audio_file):
+    pygame.mixer.music.load(audio_file)
+    pygame.mixer.music.play()
+
+def pause_audio():
+    pygame.mixer.music.pause()
+
+def unpause_audio():
+    pygame.mixer.music.unpause()
+
+def stop_audio():
+    pygame.mixer.music.stop()
+
 # Main function to run the Streamlit app
 def main():
     st.title('News Summarization & Hashtag Generator App')
@@ -143,6 +155,10 @@ def main():
         st.session_state.url = ""
     if 'lang' not in st.session_state:
         st.session_state.lang = "en"
+    if 'audio_file' not in st.session_state:
+        st.session_state.audio_file = None
+    if 'is_playing' not in st.session_state:
+        st.session_state.is_playing = False
 
     st.session_state.url = st.text_input('Enter the URL of the news article:', st.session_state.url)
     st.session_state.lang = st.selectbox('Select language for translation:', ['en', 'id', 'es', 'fr'], index=['en', 'id', 'es', 'fr'].index(st.session_state.lang))
@@ -191,15 +207,32 @@ def main():
 
                 # Infographic
                 st.write("### Infographic:")
-                st.image(infographic_buf, caption="Word Count per Key Point", use_column_width=True)
+                st.image(infographic_buf)
 
                 # Generate hashtags
                 hashtags = generate_hashtags(translated_title, translated_article, st.session_state.lang)
-                st.subheader('Generated Hashtags:')
-                st.write(', '.join(hashtags))
+                st.write("### Generated Hashtags:")
+                st.write(", ".join(hashtags))
 
-                st.success("Summary and hashtags generated successfully!")
+                # Generate and play audio
+                st.session_state.audio_file = text_to_speech(translated_title, point_summary, paragraph_summary, detailed_summary, lang=st.session_state.lang)
+                if st.button("Play Audio Summary"):
+                    if st.session_state.audio_file:
+                        play_audio(st.session_state.audio_file)
+                        st.session_state.is_playing = True
+                    else:
+                        st.error("Audio file not generated.")
 
-# Run the app
+                if st.session_state.is_playing:
+                    if st.button("Pause Audio"):
+                        pause_audio()
+                        st.session_state.is_playing = False
+                    if st.button("Resume Audio"):
+                        unpause_audio()
+                        st.session_state.is_playing = True
+                    if st.button("Stop Audio"):
+                        stop_audio()
+                        st.session_state.is_playing = False
+
 if __name__ == "__main__":
     main()
