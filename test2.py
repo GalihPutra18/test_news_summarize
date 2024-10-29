@@ -1,24 +1,26 @@
-import spacy
+import nltk
 import streamlit as st
 import requests
 import matplotlib.pyplot as plt
 import io
 import re
 from bs4 import BeautifulSoup
+from nltk.tokenize import sent_tokenize, word_tokenize
+from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from googletrans import Translator
 
-# Load spaCy model for English and Indonesian
-nlp_en = spacy.load("en_core_web_sm")
-nlp_id = spacy.load("id_core_news_sm")
+# Download stopwords for nltk
+nltk.download('punkt')
+nltk.download('stopwords')
 
 # Initialize stop words for multiple languages
 stop_words = {
-    'en': set(nlp_en.Defaults.stop_words).union({'said', 'will', 'also', 'one', 'new', 'make'}),
-    'id': set(nlp_id.Defaults.stop_words).union({'dan', 'yang', 'di', 'dari', 'pada', 'untuk', 'dengan', 'ke', 'dalam', 'adalah'}),
-    'es': set(spacy.load("es_core_news_sm").Defaults.stop_words).union({'y', 'el', 'en', 'con', 'para', 'de'}),
-    'fr': set(spacy.load("fr_core_news_sm").Defaults.stop_words).union({'et', 'le', 'est', 'dans', 'sur', 'avec'})
+    'en': set(stopwords.words('english')).union({'said', 'will', 'also', 'one', 'new', 'make'}),
+    'id': set(stopwords.words('indonesian')).union({'dan', 'yang', 'di', 'dari', 'pada', 'untuk', 'dengan', 'ke', 'dalam', 'adalah'}),
+    'es': set(stopwords.words('spanish')).union({'y', 'el', 'en', 'con', 'para', 'de'}),
+    'fr': set(stopwords.words('french')).union({'et', 'le', 'est', 'dans', 'sur', 'avec'})
 }
 
 # Function to fetch and parse the article from the given URL
@@ -40,16 +42,16 @@ def fetch_article(url):
 
 # Function to summarize the article into key points and generate infographic
 def summarize_article_flexible(article, num_clusters=2):
-    sentences = list(nlp_en(article).sents)  # Tokenize sentences using spaCy
+    sentences = sent_tokenize(article)
     vectorizer = TfidfVectorizer(stop_words='english')
-    X = vectorizer.fit_transform([sent.text for sent in sentences])
+    X = vectorizer.fit_transform(sentences)
     kmeans = KMeans(n_clusters=num_clusters, n_init=10)
     kmeans.fit(X)
 
     # Get key points from each cluster
     point_summary = []
     for i in range(num_clusters):
-        cluster_sentences = [sent.text for j, sent in enumerate(sentences) if kmeans.labels_[j] == i]
+        cluster_sentences = [sentences[j] for j in range(len(sentences)) if kmeans.labels_[j] == i]
         if cluster_sentences:
             point_summary.append(max(cluster_sentences, key=len))  # Longest sentence as key point
 
@@ -57,7 +59,7 @@ def summarize_article_flexible(article, num_clusters=2):
     paragraph_summary = ' '.join(point_summary)
 
     # Infographic: Visualizing word counts
-    sentence_lengths = [len(sent.split()) for sent in point_summary]
+    sentence_lengths = [len(sentence.split()) for sentence in point_summary]
     plt.figure(figsize=(6, 4))
     plt.bar(range(1, len(point_summary) + 1), sentence_lengths, color='skyblue')
     plt.xlabel('Point Number')
@@ -69,25 +71,10 @@ def summarize_article_flexible(article, num_clusters=2):
 
     return point_summary, paragraph_summary, buf
 
-# Function to generate hashtags from title and content
-def generate_hashtags(title, content, lang='en', num_hashtags=5):
-    stop_words_set = stop_words.get(lang, set())
-    title_words = [token.text for token in nlp_en(title.lower()) if token.is_alpha and len(token.text) > 3 and token.text not in stop_words_set]
-    content_words = [token.text for token in nlp_en(content.lower()) if token.is_alpha and len(token.text) > 3 and token.text not in stop_words_set]
-    
-    # Combine title and content words, giving more weight to title words
-    keywords = title_words * 2 + content_words  # Doubling title words to increase their weight
-
-    # Generate TF-IDF scores
-    vectorizer = TfidfVectorizer()
-    X = vectorizer.fit_transform([' '.join(keywords)])
-    
-    tfidf_scores = X.toarray().flatten()
-    feature_names = vectorizer.get_feature_names_out()
-    scored_keywords = sorted(zip(feature_names, tfidf_scores), key=lambda x: x[1], reverse=True)
-    
-    top_keywords = [f"#{keyword.capitalize()}" for keyword, score in scored_keywords[:num_hashtags]]
-    return top_keywords
+# Function to generate a longer summary using all sentences
+def long_summary(article):
+    sentences = sent_tokenize(article)
+    return ' '.join(sentences)
 
 # Function to translate the article to a specific language
 def translate_article(article, dest_language='en'):
@@ -102,6 +89,26 @@ def translate_article(article, dest_language='en'):
     except Exception as e:
         st.error(f'Translation failed: {e}')
         return None
+
+# Function to generate hashtags from title and content
+def generate_hashtags(title, content, lang='en', num_hashtags=5):
+    stop_words_set = stop_words.get(lang, set())
+    title_words = [word for word in word_tokenize(title.lower()) if word.isalnum() and len(word) > 3 and word not in stop_words_set]
+    content_words = [word for word in word_tokenize(content.lower()) if word.isalnum() and len(word) > 3 and word not in stop_words_set]
+    
+    # Combine title and content words, giving more weight to title words
+    keywords = title_words * 2 + content_words  # Doubling title words to increase their weight
+
+    # Generate TF-IDF scores
+    vectorizer = TfidfVectorizer()
+    X = vectorizer.fit_transform([' '.join(keywords)])
+    
+    tfidf_scores = X.toarray().flatten()
+    feature_names = vectorizer.get_feature_names_out()
+    scored_keywords = sorted(zip(feature_names, tfidf_scores), key=lambda x: x[1], reverse=True)
+    
+    top_keywords = [f"#{keyword.capitalize()}" for keyword, score in scored_keywords[:num_hashtags]]
+    return top_keywords
 
 # Main function to run the Streamlit app
 def main():
