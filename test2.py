@@ -10,10 +10,15 @@ from nltk.corpus import stopwords
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from googletrans import Translator
+import os
+
+# Set the NLTK data directory
+nltk_data_path = os.path.join(os.getcwd(), "nltk_data")  # Change this to your desired path if necessary
+nltk.data.path.append(nltk_data_path)
 
 # Download stopwords for nltk
-nltk.download('punkt')
-nltk.download('stopwords')
+nltk.download('punkt', download_dir=nltk_data_path)
+nltk.download('stopwords', download_dir=nltk_data_path)
 
 # Initialize stop words for multiple languages
 stop_words = {
