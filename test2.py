@@ -12,9 +12,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from googletrans import Translator
 
-# Initialize Pygame mixer
-pygame.mixer.init()
-
 # Download stopwords for nltk
 nltk.download('punkt')
 nltk.download('stopwords')
