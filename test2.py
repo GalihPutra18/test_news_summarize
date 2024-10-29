@@ -87,7 +87,6 @@ def translate_article(article, dest_language='en'):
         st.error(f'Translation failed: {e}')
         return None
 
-
 # Function to generate hashtags from title and content
 def generate_hashtags(title, content, lang='en', num_hashtags=5):
     stop_words_set = stop_words.get(lang, set())
@@ -108,20 +107,6 @@ def generate_hashtags(title, content, lang='en', num_hashtags=5):
     top_keywords = [f"#{keyword.capitalize()}" for keyword, score in scored_keywords[:num_hashtags]]
     return top_keywords
 
-# Audio control functions
-def play_audio(audio_file):
-    pygame.mixer.music.load(audio_file)
-    pygame.mixer.music.play()
-
-def pause_audio():
-    pygame.mixer.music.pause()
-
-def unpause_audio():
-    pygame.mixer.music.unpause()
-
-def stop_audio():
-    pygame.mixer.music.stop()
-
 # Main function to run the Streamlit app
 def main():
     st.title('News Summarization & Hashtag Generator App')
@@ -131,10 +116,6 @@ def main():
         st.session_state.url = ""
     if 'lang' not in st.session_state:
         st.session_state.lang = "en"
-    if 'audio_file' not in st.session_state:
-        st.session_state.audio_file = None
-    if 'is_playing' not in st.session_state:
-        st.session_state.is_playing = False
 
     st.session_state.url = st.text_input('Enter the URL of the news article:', st.session_state.url)
     st.session_state.lang = st.selectbox('Select language for translation:', ['en', 'id', 'es', 'fr'], index=['en', 'id', 'es', 'fr'].index(st.session_state.lang))
@@ -189,10 +170,6 @@ def main():
                 hashtags = generate_hashtags(translated_title, translated_article, st.session_state.lang)
                 st.subheader('Generated Hashtags:')
                 st.write(', '.join(hashtags))
-
-                # Generate audio only if not already generated
-                if st.session_state.audio_file is None:
-                    st.session_state.audio_file = text_to_speech(translated_title, point_summary, paragraph_summary, detailed_summary, lang=st.session_state.lang)
 
                 st.success("Summary and hashtags generated successfully!")
 
